@@ -12,7 +12,7 @@ describe.each([
   },
   {
     input: "   ",
-    expected: [""]
+    expected: []
   }
 ])("cleanInput($input)", ({ input, expected }) => {
   test(`Expected: ${expected}`, () => {
