@@ -1,5 +1,6 @@
 import { stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline';
+import { getCommands } from './commands/command.js';
 
 export function startREPL() {
   const rl = createInterface({
@@ -7,17 +8,28 @@ export function startREPL() {
     output: stdout,
     prompt: "Pokedex > "
   });
+  const commands = getCommands()
 
   rl.prompt();
   rl.on("line", (line) => {
-    const cleanedInput = cleanInput(line);
+    const cleanedInput = cleanInput(line)[0];
     if (!cleanedInput.length) {
       rl.prompt();
+    } 
+
+    const command = commands[cleanedInput];
+    if (command) {
+      try {
+        command.callback(commands);
+      } catch (err) {
+        console.log(err);
+      }
+    } else {
+      console.log("Unknown command")
     }
-    console.log(`Your command was: ${cleanedInput[0]}`);
     rl.prompt();
   })
-}
+};
 
 /**
  * Cleans the user input by splitting and lowercasing.
@@ -26,4 +38,4 @@ export function startREPL() {
  */
 export function cleanInput(input: string): string[] {
   return input.trim().toLowerCase().split(/\s+/).filter((word) => word !== "");
-}
+};
