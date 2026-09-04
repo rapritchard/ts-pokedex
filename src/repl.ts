@@ -5,7 +5,7 @@ import type { State } from './state.js';
 export function startREPL(state: State) {
 
   state.readline.prompt();
-  state.readline.on("line", (line) => {
+  state.readline.on("line", async (line) => {
     const cleanedInput = cleanInput(line)[0];
     if (!cleanedInput.length) {
       state.readline.prompt();
@@ -14,7 +14,7 @@ export function startREPL(state: State) {
     const command = state.commands[cleanedInput];
     if (command) {
       try {
-        command.callback(state);
+        await command.callback(state);
       } catch (err) {
         console.log(err);
       }
