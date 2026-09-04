@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { commandCatch } from "../commands/command_catch.js";
+import { commandExplore } from "../commands/command_explore.js";
 import { commandHelp } from "../commands/command_help.js";
 import { commandMap } from "../commands/command_map.js";
 import { commandMapB } from "../commands/command_mapb.js";
-import { commandExplore } from "../commands/command_explore.js";
-import type { Location, ShallowLocations } from "../pokeapi.js";
+import type { Location, Pokemon, ShallowLocations } from "../pokeapi.js";
 import type { CLICommand, State } from "../state.js";
 
 const page: ShallowLocations = {
@@ -31,6 +32,15 @@ function makeArea(pokemonNames: string[]): Location {
 const area = makeArea(["tentacool", "magikarp"]);
 
 /**
+ * Only the fields commandCatch reads; base_experience drives the catch odds.
+ */
+function makePokemon(name: string, baseExperience: number): Pokemon {
+  return { name, base_experience: baseExperience } as unknown as Pokemon;
+}
+
+const pikachu = makePokemon("pikachu", 112);
+
+/**
  * Builds a State with a stubbed PokeAPI and readline, so commands can be
  * exercised without hitting the network or stdin.
  */
@@ -47,7 +57,9 @@ function fakeState(overrides: Partial<State> = {}): State {
     pokeAPI: {
       fetchLocations: vi.fn().mockResolvedValue(page),
       fetchLocation: vi.fn().mockResolvedValue(area),
+      fetchPokemon: vi.fn().mockResolvedValue(pikachu),
     } as unknown as State["pokeAPI"],
+    pokeDex: {},
     nextLocationsURL: undefined,
     prevLocationsURL: undefined,
     ...overrides,
@@ -150,6 +162,74 @@ describe("commandExplore", () => {
     );
 
     await expect(commandExplore(state, "nowhere")).rejects.toThrow("Not Found");
+  });
+});
+
+describe("commandCatch", () => {
+  // pikachu's base_experience of 112 gives a catch threshold of 50/112 ≈ 0.446
+  function stubRandom(value: number) {
+    vi.spyOn(Math, "random").mockReturnValue(value);
+  }
+
+  test("adds the Pokemon to the pokedex on a successful roll", async () => {
+    const state = fakeState();
+    stubRandom(0.4);
+
+    await commandCatch(state, "pikachu");
+
+    expect(state.pokeAPI.fetchPokemon).toHaveBeenCalledWith("pikachu");
+    expect(loggedLines()).toEqual([
+      "Throwing a Pokeball at pikachu...",
+      "pikachu was caught!",
+    ]);
+    expect(state.pokeDex["pikachu"]).toBe(pikachu);
+  });
+
+  test("leaves the pokedex untouched when the Pokemon escapes", async () => {
+    const state = fakeState();
+    stubRandom(0.6);
+
+    await commandCatch(state, "pikachu");
+
+    expect(loggedLines()).toEqual([
+      "Throwing a Pokeball at pikachu...",
+      "pikachu escaped!",
+    ]);
+    expect(state.pokeDex).toEqual({});
+  });
+
+  test("always catches a Pokemon whose base experience is below the threshold", async () => {
+    const state = fakeState();
+    vi.mocked(state.pokeAPI.fetchPokemon).mockResolvedValue(
+      makePokemon("caterpie", 39),
+    );
+    // 50/39 clamps to a threshold of 1, so even the worst roll succeeds
+    stubRandom(0.99);
+
+    await commandCatch(state, "caterpie");
+
+    expect(state.pokeDex["caterpie"]).toBeDefined();
+  });
+
+  test("asks for a Pokemon when called without one", async () => {
+    const state = fakeState();
+    const callback: CLICommand["callback"] = commandCatch;
+
+    await callback(state);
+
+    expect(state.pokeAPI.fetchPokemon).not.toHaveBeenCalled();
+    expect(loggedLines()).toEqual([
+      "Please provide a Pokemon to try and catch",
+    ]);
+  });
+
+  test("propagates a failed lookup so the REPL can report it", async () => {
+    const state = fakeState();
+    vi.mocked(state.pokeAPI.fetchPokemon).mockRejectedValue(
+      new Error("Not Found"),
+    );
+
+    await expect(commandCatch(state, "missingno")).rejects.toThrow("Not Found");
   });
 });
 

@@ -17,7 +17,7 @@ export class Cache {
     this.#cache.set(key, { createdAt: Date.now(), val });
   };
 
-  get<T>(key: string) {
+  get<T>(key: string): T | undefined {
     return this.#cache.get(key)?.val;
   };
 

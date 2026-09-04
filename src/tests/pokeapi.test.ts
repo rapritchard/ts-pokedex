@@ -4,7 +4,7 @@ import { PokeAPI, type ShallowLocations } from "../pokeapi.js";
 const page: ShallowLocations = {
   count: 2,
   next: "https://pokeapi.co/api/v2/location-area/?offset=20&limit=20",
-  previous: null,
+  previous: undefined,
   results: [
     { name: "canalave-city-area", url: "https://example.com/1" },
     { name: "eterna-city-area", url: "https://example.com/2" },

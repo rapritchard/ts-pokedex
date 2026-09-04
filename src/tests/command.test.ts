@@ -6,6 +6,7 @@ describe("getCommands", () => {
 
   test("registers the expected commands", () => {
     expect(Object.keys(commands).sort()).toEqual([
+      "catch",
       "exit",
       "explore",
       "help",
