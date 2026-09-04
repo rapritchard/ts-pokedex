@@ -36,10 +36,13 @@ function fakeState(overrides: Partial<State> = {}): State {
   };
 }
 
-let logSpy: ReturnType<typeof vi.spyOn>;
+const logs: string[] = [];
 
 beforeEach(() => {
-  logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  logs.length = 0;
+  vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+    logs.push(String(args[0] ?? ""));
+  });
 });
 
 afterEach(() => {
@@ -47,7 +50,7 @@ afterEach(() => {
 });
 
 function loggedLines() {
-  return logSpy.mock.calls.map((call) => String(call[0] ?? ""));
+  return logs;
 }
 
 describe("commandHelp", () => {
