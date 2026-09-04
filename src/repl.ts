@@ -6,15 +6,15 @@ export function startREPL(state: State) {
 
   state.readline.prompt();
   state.readline.on("line", async (line) => {
-    const cleanedInput = cleanInput(line)[0];
+    const cleanedInput = cleanInput(line);
     if (!cleanedInput.length) {
       state.readline.prompt();
     } 
 
-    const command = state.commands[cleanedInput];
+    const command = state.commands[cleanedInput[0]];
     if (command) {
       try {
-        await command.callback(state);
+        await command.callback(state, ...cleanedInput.slice(1));
       } catch (err) {
         console.log(err);
       }

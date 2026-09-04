@@ -7,6 +7,7 @@ describe("getCommands", () => {
   test("registers the expected commands", () => {
     expect(Object.keys(commands).sort()).toEqual([
       "exit",
+      "explore",
       "help",
       "map",
       "mapb",
@@ -16,7 +17,8 @@ describe("getCommands", () => {
   test.each(Object.entries(commands))(
     "%s has a name, description and callback",
     (key, cmd) => {
-      expect(cmd.name).toBe(key);
+      // name may carry a usage suffix, e.g. "explore <area_name>"
+      expect(cmd.name.split(" ")[0]).toBe(key);
       expect(cmd.description.length).toBeGreaterThan(0);
       expect(typeof cmd.callback).toBe("function");
     },

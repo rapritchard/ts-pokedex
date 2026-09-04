@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { commandHelp } from "../commands/command_help.js";
 import { commandMap } from "../commands/command_map.js";
 import { commandMapB } from "../commands/command_mapb.js";
-import type { ShallowLocations } from "../pokeapi.js";
-import type { State } from "../state.js";
+import { commandExplore } from "../commands/command_explore.js";
+import type { Location, ShallowLocations } from "../pokeapi.js";
+import type { CLICommand, State } from "../state.js";
 
 const page: ShallowLocations = {
   count: 2,
@@ -14,6 +15,20 @@ const page: ShallowLocations = {
     { name: "eterna-city-area", url: "https://example.com/2" },
   ],
 };
+
+/**
+ * Only the fields commandExplore reads; the rest of Location is irrelevant here.
+ */
+function makeArea(pokemonNames: string[]): Location {
+  return {
+    name: "pastoria-city-area",
+    pokemon_encounters: pokemonNames.map((name) => ({
+      pokemon: { name, url: `https://example.com/${name}` },
+    })),
+  } as unknown as Location;
+}
+
+const area = makeArea(["tentacool", "magikarp"]);
 
 /**
  * Builds a State with a stubbed PokeAPI and readline, so commands can be
@@ -29,7 +44,10 @@ function fakeState(overrides: Partial<State> = {}): State {
         callback: commandHelp,
       },
     },
-    pokeAPI: { fetchLocations: vi.fn().mockResolvedValue(page) } as unknown as State["pokeAPI"],
+    pokeAPI: {
+      fetchLocations: vi.fn().mockResolvedValue(page),
+      fetchLocation: vi.fn().mockResolvedValue(area),
+    } as unknown as State["pokeAPI"],
     nextLocationsURL: undefined,
     prevLocationsURL: undefined,
     ...overrides,
@@ -83,6 +101,55 @@ describe("commandMap", () => {
     expect(state.pokeAPI.fetchLocations).toHaveBeenCalledWith(
       "https://example.com/next",
     );
+  });
+});
+
+describe("commandExplore", () => {
+  test("prints the encounters for the given area", async () => {
+    const state = fakeState();
+
+    await commandExplore(state, "pastoria-city-area");
+
+    expect(state.pokeAPI.fetchLocation).toHaveBeenCalledWith(
+      "pastoria-city-area",
+    );
+    expect(loggedLines()).toEqual([
+      "Exploring pastoria-city-area...",
+      "Found Pokemon:",
+      " - tentacool",
+      " - magikarp",
+    ]);
+  });
+
+  test("reports when an area has no encounters", async () => {
+    const state = fakeState();
+    vi.mocked(state.pokeAPI.fetchLocation).mockResolvedValue(makeArea([]));
+
+    await commandExplore(state, "empty-area");
+
+    expect(loggedLines()).toContain("No Pokemon found in empty-area");
+  });
+
+  test("asks for an area name when called without one", async () => {
+    const state = fakeState();
+    // the REPL invokes callbacks with no extra args when none were typed
+    const callback: CLICommand["callback"] = commandExplore;
+
+    await callback(state);
+
+    expect(state.pokeAPI.fetchLocation).not.toHaveBeenCalled();
+    expect(loggedLines()).toEqual([
+      "Please provide an area name to explore",
+    ]);
+  });
+
+  test("propagates a failed lookup so the REPL can report it", async () => {
+    const state = fakeState();
+    vi.mocked(state.pokeAPI.fetchLocation).mockRejectedValue(
+      new Error("Not Found"),
+    );
+
+    await expect(commandExplore(state, "nowhere")).rejects.toThrow("Not Found");
   });
 });
 
