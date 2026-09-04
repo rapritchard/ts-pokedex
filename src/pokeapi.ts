@@ -2,9 +2,15 @@ import { Cache } from "./pokecache.js";
 
 export class PokeAPI {
   private static readonly baseURL = "https://pokeapi.co/api/v2";
-  #cache: Cache = new Cache(1000 * 60 * 5);
+  #cache: Cache;
 
-  constructor() {}
+  constructor(cacheInterval: number) {
+    this.#cache = new Cache(cacheInterval);
+  }
+
+  closeCache() {
+    this.#cache.stopReapLoop();
+  }
 
   /**
    * Fetches and caches a URL, returning the cached value when one is present.

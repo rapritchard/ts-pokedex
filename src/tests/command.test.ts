@@ -10,8 +10,10 @@ describe("getCommands", () => {
       "exit",
       "explore",
       "help",
+      "inspect",
       "map",
       "mapb",
+      "pokedex",
     ]);
   });
 

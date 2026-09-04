@@ -6,6 +6,7 @@ let state: State | undefined;
 
 afterEach(() => {
   state?.readline.close();
+  state?.pokeAPI.closeCache();
   state = undefined;
 });
 
@@ -16,6 +17,7 @@ describe("initState", () => {
     expect(state.readline).toBeDefined();
     expect(state.pokeAPI).toBeInstanceOf(PokeAPI);
     expect(Object.keys(state.commands)).toContain("help");
+    expect(state.pokeDex).toEqual({});
     expect(state.nextLocationsURL).toBeUndefined();
     expect(state.prevLocationsURL).toBeUndefined();
   });

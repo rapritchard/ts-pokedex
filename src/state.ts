@@ -19,7 +19,7 @@ export type CLICommand = {
 };
 
 export function initState(): State {
-  const pokeAPI = new PokeAPI();
+  const pokeAPI = new PokeAPI(1000 * 60 * 5);
   const readline = createInterface({
       input: stdin,
       output: stdout,

@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { commandCatch } from "../commands/command_catch.js";
 import { commandExplore } from "../commands/command_explore.js";
 import { commandHelp } from "../commands/command_help.js";
+import { commandInspect } from "../commands/command_inspect.js";
 import { commandMap } from "../commands/command_map.js";
 import { commandMapB } from "../commands/command_mapb.js";
+import { commandPokedex } from "../commands/command_pokedex.js";
 import type { Location, Pokemon, ShallowLocations } from "../pokeapi.js";
 import type { CLICommand, State } from "../state.js";
 
@@ -32,13 +34,34 @@ function makeArea(pokemonNames: string[]): Location {
 const area = makeArea(["tentacool", "magikarp"]);
 
 /**
- * Only the fields commandCatch reads; base_experience drives the catch odds.
+ * Only the fields the commands read; base_experience drives the catch odds,
+ * the rest is what commandInspect prints.
  */
-function makePokemon(name: string, baseExperience: number): Pokemon {
-  return { name, base_experience: baseExperience } as unknown as Pokemon;
+function makePokemon(
+  name: string,
+  baseExperience: number,
+  extras: Partial<Pokemon> = {},
+): Pokemon {
+  return {
+    name,
+    base_experience: baseExperience,
+    height: 4,
+    weight: 60,
+    stats: [],
+    types: [],
+    ...extras,
+  } as unknown as Pokemon;
 }
 
-const pikachu = makePokemon("pikachu", 112);
+const pikachu = makePokemon("pikachu", 112, {
+  height: 4,
+  weight: 60,
+  stats: [
+    { base_stat: 35, effort: 0, stat: { name: "hp", url: "" } },
+    { base_stat: 55, effort: 0, stat: { name: "attack", url: "" } },
+  ],
+  types: [{ slot: 1, type: { name: "electric", url: "" } }],
+});
 
 /**
  * Builds a State with a stubbed PokeAPI and readline, so commands can be
@@ -230,6 +253,69 @@ describe("commandCatch", () => {
     );
 
     await expect(commandCatch(state, "missingno")).rejects.toThrow("Not Found");
+  });
+});
+
+describe("commandInspect", () => {
+  test("prints the details of a caught Pokemon", async () => {
+    const state = fakeState({ pokeDex: { pikachu } });
+
+    await commandInspect(state, "pikachu");
+
+    expect(loggedLines()).toEqual([
+      "Name: pikachu",
+      "Height: 4",
+      "Weight: 60",
+      "Stats:",
+      " -hp: 35",
+      " -attack: 55",
+      "Types:",
+      " - electric",
+    ]);
+  });
+
+  test("tells you to catch a Pokemon you haven't caught", async () => {
+    const state = fakeState({ pokeDex: { pikachu } });
+
+    await commandInspect(state, "mewtwo");
+
+    expect(loggedLines()).toEqual(["You need to catch a mewtwo first!"]);
+  });
+
+  test("asks for a Pokemon when called without one", async () => {
+    const state = fakeState({ pokeDex: { pikachu } });
+    const callback: CLICommand["callback"] = commandInspect;
+
+    await callback(state);
+
+    // NOTE: mirrors commandCatch's wording, see the copy-paste below
+    expect(loggedLines()).toEqual([
+      "Please provide a Pokemon to inspect",
+    ]);
+  });
+});
+
+describe("commandPokedex", () => {
+  test("reports an empty pokedex", async () => {
+    const state = fakeState();
+
+    await commandPokedex(state);
+
+    expect(loggedLines()).toEqual(["The Pokedex is empty..."]);
+  });
+
+  test("lists every caught Pokemon", async () => {
+    const state = fakeState({
+      pokeDex: { pikachu, caterpie: makePokemon("caterpie", 39) },
+    });
+
+    await commandPokedex(state);
+
+    expect(loggedLines()).toEqual([
+      "Your Pokedex:",
+      " - pikachu",
+      " - caterpie",
+    ]);
   });
 });
 

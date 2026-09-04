@@ -12,7 +12,7 @@ export async function commandExplore(state: State, areaName: string) {
   const area = await pokeAPI.fetchLocation(areaName);
   
   if (area.pokemon_encounters.length) {
-    console.log('Found Pokemon:');
+    console.log("Found Pokemon:");
     for (const encounter of area.pokemon_encounters) {
       console.log(` - ${encounter.pokemon.name}`);
     }
